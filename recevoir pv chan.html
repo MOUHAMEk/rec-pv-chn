@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réception des PV de Chantier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            font-size: 30px;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background-color: #3498db;
+            color: white;
+            padding: 20px;
+            text-transform: uppercase;
+            width: 100%;
+        }
+
+        main {
+            margin-top: 50px;
+            text-align: center;
+            width: 80%;
+        }
+
+        .day-selection, .pv-details {
+            margin: 20px 0;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .photo-display {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 10px;
+            background-color: #ecf0f1;
+        }
+
+        .photo-display img {
+            max-width: 100%;
+            height: auto;
+            margin: 10px 0;
+        }
+
+        .photo-display p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Réception des PV de Chantier</h1>
+    </header>
+
+    <main>
+        <div class="day-selection">
+            <label for="dayDropdown">Sélectionnez un jour:</label>
+            <select id="dayDropdown">
+                <option value="" disabled selected>Choisir un jour...</option>
+            </select>
+            <button id="viewButton" onclick="viewPV()">Voir le PV pour ce jour</button>
+        </div>
+
+        <div id="pvDetails" class="pv-details" style="display: none;">
+            <h2>Détails du PV</h2>
+            <p><strong>Date:</strong> <span id="pvDate"></span></p>
+            <p><strong>Présence:</strong> <span id="pvPresence"></span></p>
+            <p><strong>Approvisionnement:</strong> <span id="pvApprovision"></span></p>
+            <p><strong>Avancement des travaux:</strong> <span id="pvAvancement"></span></p>
+            <p><strong>Observations:</strong> <span id="pvObservations"></span></p>
+            <p><strong>Nom du Responsable:</strong> <span id="pvResponsable"></span></p>
+
+            <div id="photoContainer" class="photo-display"></div>
+
+            <a id="wordLink" href="" target="_blank">
+                <button>Télécharger le document Word</button>
+            </a>
+        </div>
+    </main>
+
+    <footer>
+        MArisk
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+        import { getStorage, ref as storageRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCOA0a_rjXqY99KXyyuHEiPOJDGGapZQUo",
+            authDomain: "suivi-49954.firebaseapp.com",
+            databaseURL: "https://suivi-49954-default-rtdb.firebaseio.com",
+            projectId: "suivi-49954",
+            storageBucket: "suivi-49954.appspot.com",
+            messagingSenderId: "141836603566",
+            appId: "1:141836603566:web:aaff934468238d958cdd3f",
+            measurementId: "G-3CMYEPPYK8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const storage = getStorage(app);
+
+        const dayDropdown = document.getElementById("dayDropdown");
+
+        const days = [...Array(31).keys()].map(i => `septembre ${i + 1}`).concat([...Array(30).keys()].map(i => `octobre ${i + 1}`));
+        days.forEach(day => {
+            const option = document.createElement("option");
+            option.value = day;
+            option.textContent = day;
+            dayDropdown.appendChild(option);
+        });
+
+        window.viewPV = async function() {
+            const selectedDay = dayDropdown.value;
+            const pvDetails = document.getElementById("pvDetails");
+            const pvDate = document.getElementById("pvDate");
+            const pvPresence = document.getElementById("pvPresence");
+            const pvApprovision = document.getElementById("pvApprovision");
+            const pvAvancement = document.getElementById("pvAvancement");
+            const pvObservations = document.getElementById("pvObservations");
+            const pvResponsable = document.getElementById("pvResponsable");
+            const photoContainer = document.getElementById("photoContainer");
+            const wordLink = document.getElementById("wordLink");
+
+            if (selectedDay) {
+                try {
+                    const pvRef = ref(db, 'pvs/' + selectedDay);
+                    onValue(pvRef, async (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            pvDate.textContent = data.date;
+                            pvPresence.textContent = data.presence;
+                            pvApprovision.textContent = data.approvision;
+                            pvAvancement.textContent = data.avancement;
+                            pvObservations.textContent = data.observations;
+                            pvResponsable.textContent = data.responsable;
+
+                            photoContainer.innerHTML = '';
+                            if (data.photos && data.photos.length > 0) {
+                                for (const photo of data.photos) {
+                                    const img = document.createElement('img');
+                                    const caption = document.createElement('p');
+                                    img.src = photo.url;
+                                    caption.textContent = photo.caption || 'Pas de légende';
+                                    photoContainer.appendChild(img);
+                                    photoContainer.appendChild(caption);
+                                }
+                            }
+
+                            if (data.wordDocument) {
+                                wordLink.href = data.wordDocument;
+                                wordLink.style.display = 'inline';
+                            } else {
+                                wordLink.style.display = 'none';
+                            }
+
+                            pvDetails.style.display = 'block';
+                        } else {
+                            alert('Aucune donnée trouvée pour ce jour.');
+                        }
+                    });
+                } catch (error) {
+                    alert("Erreur lors de la récupération du PV. Veuillez réessayer.");
+                    console.error("Erreur lors de la récupération du PV : ", error);
+                }
+            } else {
+                alert("Veuillez sélectionner un jour.");
+            }
+        };
+    </script>
+
+</body>
+</html>
